@@ -1,0 +1,57 @@
+workflows:
+  ios-testflight:
+    name: iOS TestFlight Build
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: Code Magic
+    environment:
+      ios_signing:
+        distribution_type: app_store # Required for TestFlight
+        bundle_identifier: uYou # Replace yourusername with your actual developer account name
+      vars:
+        DEVELOPER_TEAM_ID: "2PJHHL4TW5" # Replace with your Apple Developer Team ID
+        APPSTORE_KEY_ISSUERID: "${APPSTORE_KEY_ISSUERID}" # Set this in Codemagic UI
+        APPSTORE_KEY_ID: "${APPSTORE_KEY_ID}" # Set this in Codemagic UI
+        APPSTORE_PRIVATE_KEY: "${APPSTORE_PRIVATE_KEY}" # Set this in Codemagic UI
+    scripts:
+      - name: Set up dependencies
+        script: |
+          echo "Installing required dependencies"
+          brew install ldid # Install ldid for code signing if needed
+          # Add any other dependencies needed by your build process
+          
+      - name: Set up code signing
+        script: |
+          echo "Setting up code signing for TestFlight"
+          keychain initialize
+          app-store-connect fetch-signing-files "uYou" --type IOS_APP_STORE --create
+          keychain add-certificates
+          
+      - name: Run build script
+        script: |
+          echo "Running the custom build script"
+          chmod +x ./build.sh
+          ./build.sh
+          
+      - name: Prepare IPA for TestFlight
+        script: |
+          echo "Preparing IPA for TestFlight"
+          # You may need to rename or process the IPA file
+          # The exact commands depend on how your build.sh generates the IPA
+          
+          # If your build.sh doesn't generate a properly signed IPA:
+          # Uncomment and modify these lines:
+          # mv your_output.ipa uYou.ipa
+          # xcrun altool --upload-app -f uYou.ipa --type ios -u $APPSTORE_USERNAME -p $APPSTORE_PASSWORD
+          
+    artifacts:
+      - "*.ipa" # This should capture the final IPA file
+      - "build_output/**/*" # Adjust based on where build.sh places its output
+      
+    publishing:
+      app_store_connect:
+        auth: integration # This uses the credentials configured in Codemagic UI
+        submit_to_testflight: true
+        beta_groups: # Optional: specify TestFlight beta testing groups
+          - "Internal Testers"
+        # submit_to_app_store: false  # Keep this off until ready for App Store
